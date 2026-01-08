@@ -1,11 +1,155 @@
-<!DOCTYPE html>
-<html>
-<head>
-<title>BACKBENCHERS 2026</title>
-<meta charset="utf-8">
-</head>
-<body style="background:black;color:#00ff9c;font-family:monospace;">
-<h1>BACKBENCHERS 2026 — Secure Access</h1>
-<p>Dark hacker style site loading…</p>
-</body>
-</html>
+import { useState } from "react";
+
+export default function App() {
+  const [step, setStep] = useState("login");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [blockedAccounts, setBlockedAccounts] = useState({});
+  const [failedAttempts, setFailedAttempts] = useState({});
+  const [isAdminApprovalPending, setIsAdminApprovalPending] = useState(false);
+
+  // Demo credentials (replace with real backend later)
+  const ADMIN_PASSWORD = "ADMIN 2026";
+
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Chat and community features
+  const [messages, setMessages] = useState([]);
+  const [currentMessage, setCurrentMessage] = useState("");
+
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState(["", ""]);
+  const [pollVotes, setPollVotes] = useState({});
+
+  const handleAdminLogin = () => {
+    if (password === ADMIN_PASSWORD) {
+      setIsAdmin(true);
+      setPassword("");
+    }
+  };
+
+  const handleAdminLogout = () => {
+    setIsAdmin(false);
+  };
+
+  const sendMessage = () => {
+    if (!currentMessage.trim()) return;
+    setMessages([...messages, { text: currentMessage, sender: isAdmin ? "admin" : "user" }]);
+    setCurrentMessage("");
+  };
+
+  const vote = (option) => {
+    setPollVotes({
+      ...pollVotes,
+      [option]: (pollVotes[option] || 0) + 1,
+    });
+  };
+
+  const addPollOption = () => {
+    setPollOptions([...pollOptions, ""]);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white p-6">
+      <h1 className="text-3xl font-bold mb-4">Backbenchers 2026 Secure Website</h1>
+
+      {!isAdmin && (
+        <div className="mb-6 p-4 bg-gray-800 rounded-2xl">
+          <h2 className="text-xl font-semibold mb-2">Admin Login</h2>
+          <input
+            type="password"
+            placeholder="Enter Admin Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full p-2 rounded bg-gray-700 mb-2"
+          />
+          <button onClick={handleAdminLogin} className="px-4 py-2 rounded bg-blue-600">
+            Unlock Admin Panel
+          </button>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div className="mb-6 p-4 bg-gray-800 rounded-2xl">
+          <h2 className="text-xl font-semibold mb-4">Admin Panel</h2>
+          <p className="mb-2">You are logged in as ADMIN.</p>
+          <button onClick={handleAdminLogout} className="px-4 py-2 rounded bg-red-600 mb-4">
+            Lock Admin Panel
+          </button>
+
+          <div className="mb-4">
+            <h3 className="font-semibold mb-2">Create Poll</h3>
+            <input
+              className="w-full p-2 rounded bg-gray-700 mb-2"
+              placeholder="Poll Question"
+              value={pollQuestion}
+              onChange={(e) => setPollQuestion(e.target.value)}
+            />
+            {pollOptions.map((opt, idx) => (
+              <input
+                key={idx}
+                className="w-full p-2 rounded bg-gray-700 mb-2"
+                placeholder={`Option ${idx + 1}`}
+                value={opt}
+                onChange={(e) => {
+                  const newOptions = [...pollOptions];
+                  newOptions[idx] = e.target.value;
+                  setPollOptions(newOptions);
+                }}
+              />
+            ))}
+            <button onClick={addPollOption} className="px-4 py-2 rounded bg-green-600">
+              Add Option
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="p-4 bg-gray-800 rounded-2xl">
+          <h2 className="text-xl font-semibold mb-2">Group Chat</h2>
+          <div className="h-64 overflow-y-auto mb-2 p-2 bg-gray-700 rounded">
+            {messages.map((m, i) => (
+              <div key={i} className={`mb-1 ${m.sender === "admin" ? "font-bold" : ""}`}>
+                {m.sender === "admin" ? "ADMIN: " : "USER: "}{m.text}
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              className="flex-1 p-2 rounded bg-gray-600"
+              placeholder="Type a message"
+              value={currentMessage}
+              onChange={(e) => setCurrentMessage(e.target.value)}
+            />
+            <button onClick={sendMessage} className="px-4 py-2 rounded bg-blue-600">
+              Send
+            </button>
+          </div>
+        </div>
+
+        <div className="p-4 bg-gray-800 rounded-2xl">
+          <h2 className="text-xl font-semibold mb-2">Poll Voting</h2>
+          {pollQuestion ? <p className="mb-2">{pollQuestion}</p> : <p>No active poll yet.</p>}
+
+          {pollOptions.filter(Boolean).map((opt, idx) => (
+            <div key={idx} className="flex items-center justify-between mb-2">
+              <span>{opt}</span>
+              <button onClick={() => vote(opt)} className="px-3 py-1 rounded bg-blue-600">
+                Vote ({pollVotes[opt] || 0})
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-6 p-4 bg-gray-800 rounded-2xl">
+        <h2 className="text-xl font-semibold mb-2">Media Sharing</h2>
+        <p className="text-sm mb-2">Prototype placeholders: here you will later integrate real uploads.</p>
+        <input type="file" className="mb-2" multiple />
+        <textarea className="w-full p-2 rounded bg-gray-700" placeholder="Share thoughts, video or photo description..." />
+      </div>
+    </div>
+  );
+}
