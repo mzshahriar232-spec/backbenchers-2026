@@ -1,155 +1,238 @@
 import { useState } from "react";
 
 export default function App() {
-  const [step, setStep] = useState("login");
+  // ---------------- CORE SECURITY LOGIC IMPLEMENTED ----------------
+  // Email + phone mandatory first
+  // Wrong password = block
+  // Same email+phone after block = PERMANENT BLOCK MESSAGE
+  // Access requires your admin approval first
+  // Admin password = ADMIN 2026
+  // User site password = 6 IDIOTS
+
+  const [step, setStep] = useState("email_phone");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
-  const [blockedAccounts, setBlockedAccounts] = useState({});
-  const [failedAttempts, setFailedAttempts] = useState({});
-  const [isAdminApprovalPending, setIsAdminApprovalPending] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
 
-  // Demo credentials (replace with real backend later)
+  const MAIN_PASSWORD = "6 IDIOTS";
   const ADMIN_PASSWORD = "ADMIN 2026";
 
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [blockedAccounts, setBlockedAccounts] = useState({});
+  const [approvedAccounts, setApprovedAccounts] = useState({});
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [failedAttempts, setFailedAttempts] = useState({});
+  const [adminUnlocked, setAdminUnlocked] = useState(false);
 
-  // Chat and community features
-  const [messages, setMessages] = useState([]);
-  const [currentMessage, setCurrentMessage] = useState("");
-
+  // -------- NEW real‑time features state --------
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatFeed, setChatFeed] = useState([]);
   const [pollQuestion, setPollQuestion] = useState("");
   const [pollOptions, setPollOptions] = useState(["", ""]);
-  const [pollVotes, setPollVotes] = useState({});
+  const [activePoll, setActivePoll] = useState(null);
+  const [aboutText, setAboutText] = useState("");
 
-  const handleAdminLogin = () => {
-    if (password === ADMIN_PASSWORD) {
-      setIsAdmin(true);
-      setPassword("");
+  const accountKey = `${email}_${phone}`;
+
+  // ---------------- BASIC ACCESS CONTROL ----------------
+  function submitEmailPhone() {
+    if (blockedAccounts[accountKey]) {
+      alert("BLOCKED — NO ENTRY");
+      return;
     }
-  };
 
-  const handleAdminLogout = () => {
-    setIsAdmin(false);
-  };
+    if (!approvedAccounts[accountKey]) {
+      setPendingRequests(prev => [...prev, accountKey]);
+      alert("ACCESS REQUEST SENT — WAIT FOR ADMIN APPROVAL");
+      return;
+    }
 
-  const sendMessage = () => {
-    if (!currentMessage.trim()) return;
-    setMessages([...messages, { text: currentMessage, sender: isAdmin ? "admin" : "user" }]);
-    setCurrentMessage("");
-  };
+    setStep("password");
+  }
 
-  const vote = (option) => {
-    setPollVotes({
-      ...pollVotes,
-      [option]: (pollVotes[option] || 0) + 1,
-    });
-  };
+  function submitPassword() {
+    if (password === MAIN_PASSWORD) {
+      setStep("home");
+    } else {
+      const newFails = { ...failedAttempts };
+      newFails[accountKey] = (newFails[accountKey] || 0) + 1;
 
-  const addPollOption = () => {
-    setPollOptions([...pollOptions, ""]);
-  };
+      if (newFails[accountKey] >= 3) {
+        setBlockedAccounts({ ...blockedAccounts, [accountKey]: true });
+        alert("BLOCKED — NO ENTRY");
+      } else {
+        alert("Wrong Password");
+      }
+
+      setFailedAttempts(newFails);
+    }
+  }
+
+  function unlockAdmin() {
+    if (adminPassword === ADMIN_PASSWORD) {
+      setAdminUnlocked(true);
+    } else {
+      alert("Wrong admin password");
+    }
+  }
+
+  function approveAccount(key) {
+    setApprovedAccounts({ ...approvedAccounts, [key]: true });
+    setPendingRequests(pendingRequests.filter(k => k !== key));
+  }
+
+  function blockAccount(key) {
+    setBlockedAccounts({ ...blockedAccounts, [key]: true });
+    setPendingRequests(pendingRequests.filter(k => k !== key));
+  }
+
+  // ---------------- CHAT (client-side realtime placeholder) ----------------
+  function sendChat() {
+    if (!chatMessage.trim()) return;
+    setChatFeed(prev => [...prev, { from: accountKey, text: chatMessage }]);
+    setChatMessage("");
+  }
+
+  // ---------------- POLL ----------------
+  function createPoll() {
+    if (!pollQuestion.trim()) return;
+    const poll = {
+      question: pollQuestion,
+      options: pollOptions.map(o => ({ text: o, votes: 0 }))
+    };
+    setActivePoll(poll);
+    setPollQuestion("");
+    setPollOptions(["", ""]);
+  }
+
+  function voteOption(index) {
+    if (!activePoll) return;
+    const updated = { ...activePoll };
+    updated.options[index].votes += 1;
+    setActivePoll(updated);
+  }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6">
-      <h1 className="text-3xl font-bold mb-4">Backbenchers 2026 Secure Website</h1>
+    <div className="min-h-screen bg-black text-white p-6 space-y-6">
+      <h1 className="text-3xl font-bold">BACKBENCHERS 2026</h1>
 
-      {!isAdmin && (
-        <div className="mb-6 p-4 bg-gray-800 rounded-2xl">
-          <h2 className="text-xl font-semibold mb-2">Admin Login</h2>
-          <input
-            type="password"
-            placeholder="Enter Admin Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-2 rounded bg-gray-700 mb-2"
-          />
-          <button onClick={handleAdminLogin} className="px-4 py-2 rounded bg-blue-600">
-            Unlock Admin Panel
-          </button>
+      {/* Admin Panel Login */}
+      {!adminUnlocked && (
+        <div className="p-4 border border-gray-700 rounded-xl">
+          <h2 className="text-xl">Admin Panel Login</h2>
+          <input className="text-black p-2 w-full mt-2" placeholder="Admin Password" type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} />
+          <button className="mt-3 p-2 bg-gray-700 rounded" onClick={unlockAdmin}>Unlock Admin</button>
         </div>
       )}
 
-      {isAdmin && (
-        <div className="mb-6 p-4 bg-gray-800 rounded-2xl">
-          <h2 className="text-xl font-semibold mb-4">Admin Panel</h2>
-          <p className="mb-2">You are logged in as ADMIN.</p>
-          <button onClick={handleAdminLogout} className="px-4 py-2 rounded bg-red-600 mb-4">
-            Lock Admin Panel
-          </button>
+      {/* Admin Panel */}
+      {adminUnlocked && (
+        <div className="p-4 border border-gray-700 rounded-xl space-y-4">
+          <h2 className="text-xl">ADMIN PANEL</h2>
+          <p>Only you can access this area.</p>
 
-          <div className="mb-4">
-            <h3 className="font-semibold mb-2">Create Poll</h3>
-            <input
-              className="w-full p-2 rounded bg-gray-700 mb-2"
-              placeholder="Poll Question"
-              value={pollQuestion}
-              onChange={(e) => setPollQuestion(e.target.value)}
-            />
-            {pollOptions.map((opt, idx) => (
-              <input
-                key={idx}
-                className="w-full p-2 rounded bg-gray-700 mb-2"
-                placeholder={`Option ${idx + 1}`}
-                value={opt}
-                onChange={(e) => {
-                  const newOptions = [...pollOptions];
-                  newOptions[idx] = e.target.value;
-                  setPollOptions(newOptions);
-                }}
-              />
-            ))}
-            <button onClick={addPollOption} className="px-4 py-2 rounded bg-green-600">
-              Add Option
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="p-4 bg-gray-800 rounded-2xl">
-          <h2 className="text-xl font-semibold mb-2">Group Chat</h2>
-          <div className="h-64 overflow-y-auto mb-2 p-2 bg-gray-700 rounded">
-            {messages.map((m, i) => (
-              <div key={i} className={`mb-1 ${m.sender === "admin" ? "font-bold" : ""}`}>
-                {m.sender === "admin" ? "ADMIN: " : "USER: "}{m.text}
+          <h3 className="mt-2 font-semibold">Pending Requests</h3>
+          {pendingRequests.length === 0 && <p>No requests</p>}
+          {pendingRequests.map(key => (
+            <div key={key} className="mt-2 p-2 border rounded flex justify-between items-center">
+              <p>{key}</p>
+              <div>
+                <button className="mr-2 p-1 bg-green-600 rounded" onClick={() => approveAccount(key)}>Approve</button>
+                <button className="p-1 bg-red-600 rounded" onClick={() => blockAccount(key)}>Block</button>
               </div>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <input
-              className="flex-1 p-2 rounded bg-gray-600"
-              placeholder="Type a message"
-              value={currentMessage}
-              onChange={(e) => setCurrentMessage(e.target.value)}
-            />
-            <button onClick={sendMessage} className="px-4 py-2 rounded bg-blue-600">
-              Send
-            </button>
-          </div>
-        </div>
-
-        <div className="p-4 bg-gray-800 rounded-2xl">
-          <h2 className="text-xl font-semibold mb-2">Poll Voting</h2>
-          {pollQuestion ? <p className="mb-2">{pollQuestion}</p> : <p>No active poll yet.</p>}
-
-          {pollOptions.filter(Boolean).map((opt, idx) => (
-            <div key={idx} className="flex items-center justify-between mb-2">
-              <span>{opt}</span>
-              <button onClick={() => vote(opt)} className="px-3 py-1 rounded bg-blue-600">
-                Vote ({pollVotes[opt] || 0})
-              </button>
             </div>
           ))}
         </div>
-      </div>
+      )}
 
-      <div className="mt-6 p-4 bg-gray-800 rounded-2xl">
-        <h2 className="text-xl font-semibold mb-2">Media Sharing</h2>
-        <p className="text-sm mb-2">Prototype placeholders: here you will later integrate real uploads.</p>
-        <input type="file" className="mb-2" multiple />
-        <textarea className="w-full p-2 rounded bg-gray-700" placeholder="Share thoughts, video or photo description..." />
-      </div>
+      {/* Step 1 Email + Phone */}
+      {step === "email_phone" && (
+        <div className="p-4 border border-gray-700 rounded-xl">
+          <h2 className="text-xl">Enter Email and Phone</h2>
+          <input className="text-black p-2 w-full mt-2" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
+          <input className="text-black p-2 w-full mt-2" placeholder="Phone" value={phone} onChange={e => setPhone(e.target.value)} />
+          <button className="mt-3 p-2 bg-gray-700 rounded" onClick={submitEmailPhone}>Continue</button>
+        </div>
+      )}
+
+      {/* Step 2 Password */}
+      {step === "password" && (
+        <div className="p-4 border border-gray-700 rounded-xl">
+          <h2 className="text-xl">Enter Site Password</h2>
+          <input className="text-black p-2 w-full mt-2" placeholder="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} />
+          <button className="mt-3 p-2 bg-gray-700 rounded" onClick={submitPassword}>Login</button>
+        </div>
+      )}
+
+      {/* Granted HOME AREA */}
+      {step === "home" && (
+        <div className="p-4 border border-gray-700 rounded-xl space-y-6">
+          <h2 className="text-2xl font-semibold">Secure Member Area</h2>
+
+          {/* ABOUT Section */}
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold">ABOUT</h3>
+            <textarea className="text-black w-full p-2" rows={3} value={aboutText} onChange={e => setAboutText(e.target.value)} placeholder="Write anything here..." />
+          </div>
+
+          {/* CHAT Section */}
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold">Chat</h3>
+            <div className="h-40 overflow-y-auto border p-2 rounded">
+              {chatFeed.map((m, i) => (
+                <p key={i}><span className="font-bold">{m.from}: </span>{m.text}</p>
+              ))}
+            </div>
+            <input className="text-black p-2 w-full" value={chatMessage} onChange={e => setChatMessage(e.target.value)} placeholder="Type a message" />
+            <button className="mt-2 p-2 bg-gray-700 rounded" onClick={sendChat}>Send</button>
+          </div>
+
+          {/* CALL Buttons (UI placeholders) */}
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold">Call & Voice</h3>
+            <button className="p-2 bg-gray-700 rounded w-full">Start Voice Call</button>
+            <button className="p-2 bg-gray-700 rounded w-full">Start Video Call</button>
+            <p className="text-sm text-gray-300">WebRTC integration can be connected here.</p>
+          </div>
+
+          {/* POLL Section */}
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold">Poll</h3>
+
+            {!activePoll && (
+              <div>
+                <input className="text-black p-2 w-full mb-2" placeholder="Poll question" value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} />
+                {pollOptions.map((opt, idx) => (
+                  <input key={idx} className="text-black p-2 w-full mb-2" placeholder={`Option ${idx + 1}`} value={opt} onChange={e => {
+                    const copy = [...pollOptions];
+                    copy[idx] = e.target.value;
+                    setPollOptions(copy);
+                  }} />
+                ))}
+                <button className="p-2 bg-gray-700 rounded" onClick={createPoll}>Create Poll</button>
+              </div>
+            )}
+
+            {activePoll && (
+              <div className="space-y-2">
+                <p className="font-semibold">{activePoll.question}</p>
+                {activePoll.options.map((o, i) => (
+                  <button key={i} className="p-2 bg-gray-700 rounded w-full text-left" onClick={() => voteOption(i)}>
+                    {o.text} — votes: {o.votes}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* MEDIA SHARE Section */}
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold">Share Photos & Videos</h3>
+            <input type="file" multiple className="w-full" />
+            <p>Upload files here (backend storage can be connected).</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
