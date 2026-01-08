@@ -1,238 +1,165 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
-export default function App() {
-  // ---------------- CORE SECURITY LOGIC IMPLEMENTED ----------------
-  // Email + phone mandatory first
-  // Wrong password = block
-  // Same email+phone after block = PERMANENT BLOCK MESSAGE
-  // Access requires your admin approval first
-  // Admin password = ADMIN 2026
-  // User site password = 6 IDIOTS
-
-  const [step, setStep] = useState("email_phone");
-  const [email, setEmail] = useState("");
+export default function Backbenchers2026App() {
+  const [step, setStep] = useState("gate"); // gate -> request-access -> login -> user -> admin
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
+  const [adminPass, setAdminPass] = useState("");
+  const [blocked, setBlocked] = useState({});
+  const [pendingAccess, setPendingAccess] = useState([]);
+  const [approved, setApproved] = useState({});
 
-  const MAIN_PASSWORD = "6 IDIOTS";
+  const SYSTEM_PASSWORD = "6 IDIOT";
   const ADMIN_PASSWORD = "ADMIN 2026";
 
-  const [blockedAccounts, setBlockedAccounts] = useState({});
-  const [approvedAccounts, setApprovedAccounts] = useState({});
-  const [pendingRequests, setPendingRequests] = useState([]);
-  const [failedAttempts, setFailedAttempts] = useState({});
-  const [adminUnlocked, setAdminUnlocked] = useState(false);
+  const key = `${phone}__${email}`;
 
-  // -------- NEW real‑time features state --------
-  const [chatMessage, setChatMessage] = useState("");
-  const [chatFeed, setChatFeed] = useState([]);
-  const [pollQuestion, setPollQuestion] = useState("");
-  const [pollOptions, setPollOptions] = useState(["", ""]);
-  const [activePoll, setActivePoll] = useState(null);
-  const [aboutText, setAboutText] = useState("");
-
-  const accountKey = `${email}_${phone}`;
-
-  // ---------------- BASIC ACCESS CONTROL ----------------
-  function submitEmailPhone() {
-    if (blockedAccounts[accountKey]) {
-      alert("BLOCKED — NO ENTRY");
-      return;
+  function handleAccessRequest() {
+    if (!phone || !email) return;
+    if (blocked[key]) return;
+    if (!pendingAccess.includes(key) && !approved[key]) {
+      setPendingAccess([...pendingAccess, key]);
     }
-
-    if (!approvedAccounts[accountKey]) {
-      setPendingRequests(prev => [...prev, accountKey]);
-      alert("ACCESS REQUEST SENT — WAIT FOR ADMIN APPROVAL");
-      return;
-    }
-
-    setStep("password");
   }
 
-  function submitPassword() {
-    if (password === MAIN_PASSWORD) {
-      setStep("home");
+  function handleLogin() {
+    if (blocked[key]) return;
+    if (password === SYSTEM_PASSWORD && approved[key]) {
+      setStep("user");
     } else {
-      const newFails = { ...failedAttempts };
-      newFails[accountKey] = (newFails[accountKey] || 0) + 1;
-
-      if (newFails[accountKey] >= 3) {
-        setBlockedAccounts({ ...blockedAccounts, [accountKey]: true });
-        alert("BLOCKED — NO ENTRY");
-      } else {
-        alert("Wrong Password");
-      }
-
-      setFailedAttempts(newFails);
+      // permanent block on repeated wrong attempt
+      setBlocked({ ...blocked, [key]: true });
     }
   }
 
-  function unlockAdmin() {
-    if (adminPassword === ADMIN_PASSWORD) {
-      setAdminUnlocked(true);
+  function handleAdminLogin() {
+    if (adminPass === ADMIN_PASSWORD) {
+      setStep("admin");
     } else {
-      alert("Wrong admin password");
+      // incorrect admin password -> kick and block permanently by admin flag
+      setStep("gate");
     }
   }
 
-  function approveAccount(key) {
-    setApprovedAccounts({ ...approvedAccounts, [key]: true });
-    setPendingRequests(pendingRequests.filter(k => k !== key));
-  }
-
-  function blockAccount(key) {
-    setBlockedAccounts({ ...blockedAccounts, [key]: true });
-    setPendingRequests(pendingRequests.filter(k => k !== key));
-  }
-
-  // ---------------- CHAT (client-side realtime placeholder) ----------------
-  function sendChat() {
-    if (!chatMessage.trim()) return;
-    setChatFeed(prev => [...prev, { from: accountKey, text: chatMessage }]);
-    setChatMessage("");
-  }
-
-  // ---------------- POLL ----------------
-  function createPoll() {
-    if (!pollQuestion.trim()) return;
-    const poll = {
-      question: pollQuestion,
-      options: pollOptions.map(o => ({ text: o, votes: 0 }))
-    };
-    setActivePoll(poll);
-    setPollQuestion("");
-    setPollOptions(["", ""]);
-  }
-
-  function voteOption(index) {
-    if (!activePoll) return;
-    const updated = { ...activePoll };
-    updated.options[index].votes += 1;
-    setActivePoll(updated);
+  function approve(id) {
+    setApproved({ ...approved, [id]: true });
+    setPendingAccess(pendingAccess.filter((p) => p !== id));
   }
 
   return (
-    <div className="min-h-screen bg-black text-white p-6 space-y-6">
-      <h1 className="text-3xl font-bold">BACKBENCHERS 2026</h1>
+    <div className="min-h-screen bg-black text-gray-200 font-sans">
+      <div className="max-w-6xl mx-auto p-6 space-y-6">
+        <motion.h1 initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-4xl font-bold tracking-widest text-center">
+          BACKBENCHERS 2026
+        </motion.h1>
+        <p className="text-center text-sm uppercase tracking-widest">Dark-secure private network</p>
 
-      {/* Admin Panel Login */}
-      {!adminUnlocked && (
-        <div className="p-4 border border-gray-700 rounded-xl">
-          <h2 className="text-xl">Admin Panel Login</h2>
-          <input className="text-black p-2 w-full mt-2" placeholder="Admin Password" type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} />
-          <button className="mt-3 p-2 bg-gray-700 rounded" onClick={unlockAdmin}>Unlock Admin</button>
-        </div>
-      )}
-
-      {/* Admin Panel */}
-      {adminUnlocked && (
-        <div className="p-4 border border-gray-700 rounded-xl space-y-4">
-          <h2 className="text-xl">ADMIN PANEL</h2>
-          <p>Only you can access this area.</p>
-
-          <h3 className="mt-2 font-semibold">Pending Requests</h3>
-          {pendingRequests.length === 0 && <p>No requests</p>}
-          {pendingRequests.map(key => (
-            <div key={key} className="mt-2 p-2 border rounded flex justify-between items-center">
-              <p>{key}</p>
-              <div>
-                <button className="mr-2 p-1 bg-green-600 rounded" onClick={() => approveAccount(key)}>Approve</button>
-                <button className="p-1 bg-red-600 rounded" onClick={() => blockAccount(key)}>Block</button>
+        {step === "gate" && (
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardContent className="space-y-4 p-6">
+              <h2 className="text-xl font-semibold">Join Request Gate</h2>
+              <div className="grid md:grid-cols-2 gap-4">
+                <input placeholder="Phone Number" className="bg-black border border-zinc-700 rounded-xl p-3" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                <input placeholder="Gmail Account" className="bg-black border border-zinc-700 rounded-xl p-3" value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Step 1 Email + Phone */}
-      {step === "email_phone" && (
-        <div className="p-4 border border-gray-700 rounded-xl">
-          <h2 className="text-xl">Enter Email and Phone</h2>
-          <input className="text-black p-2 w-full mt-2" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} />
-          <input className="text-black p-2 w-full mt-2" placeholder="Phone" value={phone} onChange={e => setPhone(e.target.value)} />
-          <button className="mt-3 p-2 bg-gray-700 rounded" onClick={submitEmailPhone}>Continue</button>
-        </div>
-      )}
-
-      {/* Step 2 Password */}
-      {step === "password" && (
-        <div className="p-4 border border-gray-700 rounded-xl">
-          <h2 className="text-xl">Enter Site Password</h2>
-          <input className="text-black p-2 w-full mt-2" placeholder="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} />
-          <button className="mt-3 p-2 bg-gray-700 rounded" onClick={submitPassword}>Login</button>
-        </div>
-      )}
-
-      {/* Granted HOME AREA */}
-      {step === "home" && (
-        <div className="p-4 border border-gray-700 rounded-xl space-y-6">
-          <h2 className="text-2xl font-semibold">Secure Member Area</h2>
-
-          {/* ABOUT Section */}
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold">ABOUT</h3>
-            <textarea className="text-black w-full p-2" rows={3} value={aboutText} onChange={e => setAboutText(e.target.value)} placeholder="Write anything here..." />
-          </div>
-
-          {/* CHAT Section */}
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold">Chat</h3>
-            <div className="h-40 overflow-y-auto border p-2 rounded">
-              {chatFeed.map((m, i) => (
-                <p key={i}><span className="font-bold">{m.from}: </span>{m.text}</p>
-              ))}
-            </div>
-            <input className="text-black p-2 w-full" value={chatMessage} onChange={e => setChatMessage(e.target.value)} placeholder="Type a message" />
-            <button className="mt-2 p-2 bg-gray-700 rounded" onClick={sendChat}>Send</button>
-          </div>
-
-          {/* CALL Buttons (UI placeholders) */}
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold">Call & Voice</h3>
-            <button className="p-2 bg-gray-700 rounded w-full">Start Voice Call</button>
-            <button className="p-2 bg-gray-700 rounded w-full">Start Video Call</button>
-            <p className="text-sm text-gray-300">WebRTC integration can be connected here.</p>
-          </div>
-
-          {/* POLL Section */}
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold">Poll</h3>
-
-            {!activePoll && (
-              <div>
-                <input className="text-black p-2 w-full mb-2" placeholder="Poll question" value={pollQuestion} onChange={e => setPollQuestion(e.target.value)} />
-                {pollOptions.map((opt, idx) => (
-                  <input key={idx} className="text-black p-2 w-full mb-2" placeholder={`Option ${idx + 1}`} value={opt} onChange={e => {
-                    const copy = [...pollOptions];
-                    copy[idx] = e.target.value;
-                    setPollOptions(copy);
-                  }} />
-                ))}
-                <button className="p-2 bg-gray-700 rounded" onClick={createPoll}>Create Poll</button>
+              {blocked[key] && <div className="text-red-500 text-sm">This identity is permanently blocked.</div>}
+              <div className="flex gap-3">
+                <Button className="rounded-2xl" onClick={() => setStep("login")}>Already Approved? Login</Button>
+                <Button className="rounded-2xl" onClick={handleAccessRequest}>Request Access</Button>
+                <Button variant="outline" className="rounded-2xl" onClick={() => setStep("admin-login")}>Admin Panel</Button>
               </div>
-            )}
+            </CardContent>
+          </Card>
+        )}
 
-            {activePoll && (
+        {step === "login" && (
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardContent className="space-y-4 p-6">
+              <h2 className="text-xl font-semibold">Secure Login</h2>
+              <input placeholder="System Password" type="password" className="bg-black border border-zinc-700 rounded-xl p-3 w-full" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Button className="rounded-2xl w-full" onClick={handleLogin}>Enter</Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {step === "admin-login" && (
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardContent className="space-y-4 p-6">
+              <h2 className="text-xl font-semibold">Admin Authentication</h2>
+              <input placeholder="Admin Password" type="password" className="bg-black border border-zinc-700 rounded-xl p-3 w-full" value={adminPass} onChange={(e) => setAdminPass(e.target.value)} />
+              <Button className="rounded-2xl w-full" onClick={handleAdminLogin}>Open Admin Panel</Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {step === "admin" && (
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardContent className="space-y-4 p-6">
+              <h2 className="text-xl font-semibold">ADMIN PANEL</h2>
               <div className="space-y-2">
-                <p className="font-semibold">{activePoll.question}</p>
-                {activePoll.options.map((o, i) => (
-                  <button key={i} className="p-2 bg-gray-700 rounded w-full text-left" onClick={() => voteOption(i)}>
-                    {o.text} — votes: {o.votes}
-                  </button>
-                ))}
+                <h3 className="font-medium">Pending Access Requests</h3>
+                {pendingAccess.length === 0 && <p className="text-sm text-zinc-400">No pending requests.</p>}
+                <div className="space-y-2">
+                  {pendingAccess.map((id) => (
+                    <div key={id} className="flex items-center justify-between bg-black/60 rounded-xl p-3">
+                      <span>{id}</span>
+                      <div className="flex gap-2">
+                        <Button onClick={() => approve(id)}>Approve</Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            )}
-          </div>
+              <Button variant="outline" className="rounded-2xl" onClick={() => setStep("gate")}>Close Panel</Button>
+            </CardContent>
+          </Card>
+        )}
 
-          {/* MEDIA SHARE Section */}
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold">Share Photos & Videos</h3>
-            <input type="file" multiple className="w-full" />
-            <p>Upload files here (backend storage can be connected).</p>
+        {step === "user" && (
+          <div className="space-y-6">
+            <Card className="bg-zinc-900 border-zinc-800">
+              <CardContent className="space-y-4 p-6">
+                <h2 className="text-xl font-semibold">Identity</h2>
+                <p className="text-sm">Phone: {phone}</p>
+                <p className="text-sm">Email: {email}</p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-zinc-900 border-zinc-800">
+              <CardContent className="space-y-4 p-6">
+                <h2 className="text-xl font-semibold">Gallery</h2>
+                <input type="file" multiple className="w-full rounded-xl bg-black border border-zinc-700 p-3" />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="rounded-2xl h-24 bg-zinc-800"></div>
+                  <div className="rounded-2xl h-24 bg-zinc-800"></div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-zinc-900 border-zinc-800">
+              <CardContent className="space-y-4 p-6">
+                <h2 className="text-xl font-semibold">Communicate Box</h2>
+                <div className="border border-zinc-700 rounded-2xl h-64 p-3 overflow-y-auto bg-black">Chat messages area</div>
+                <div className="flex gap-2">
+                  <input placeholder="Type a message" className="flex-1 rounded-xl p-3 bg-black border border-zinc-700" />
+                  <Button>Send</Button>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                  <Button className="rounded-2xl">Voice Call</Button>
+                  <Button className="rounded-2xl">Video Call</Button>
+                  <Button className="rounded-2xl">Create Poll</Button>
+                  <Button className="rounded-2xl">Share File</Button>
+                </div>
+                <p className="text-xs text-zinc-500">Note: Real-time chat, calls, and storage require backend services (e.g., WebRTC, signaling server, database).</p>
+              </CardContent>
+            </Card>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
